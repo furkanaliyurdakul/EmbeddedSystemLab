@@ -7,10 +7,10 @@ MotorDriver::MotorDriver() {
     pinMode(ENABLE_PIN, OUTPUT);
     digitalWrite(ENABLE_PIN, HIGH);
 
-    ledcSetup(CHANNEL_B, FREQUENCY, RESOLUTION);
+    ledcSetup(CHANNEL_A, FREQUENCY, RESOLUTION);
     ledcAttachPin(MOTOR_A_PWM, CHANNEL_A);
 
-    ledcSetup(CHANNEL_A, FREQUENCY, RESOLUTION);
+    ledcSetup(CHANNEL_B, FREQUENCY, RESOLUTION);
     ledcAttachPin(MOTOR_B_PWM, CHANNEL_B);
 }
 
