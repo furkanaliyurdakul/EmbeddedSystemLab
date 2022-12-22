@@ -1,93 +1,55 @@
-/**
- * ESP32 Sensor Library
- * 
- * Functions to get distance values from the sensors
- * 
- * Authors: Vipul Deshpande, Jaime Burbano
-*/
-
-/*
-This example shows how to use non-blocking code to read
-from all three channels of the distance sensor
-and stores the results in an array.
-
-Each channel is sampled approximately 32 times per second.
-
-In addition to the usual power and I2C connections, you
-will need to connect the GP1 pin to an interrupt on your
-ESP32 board.  in this code, the pin D2 of the NodeMCU board is used
-pin D2 --> GP1. This is already done.
-
-documentation here: https://github.com/pololu/opt3101-arduino
-*/
+// This example shows how to read from all three channels on
+// the OPT3101 and store the results in arrays.  It also shows
+// how to use the sensor in a non-blocking way: instead of
+// waiting for a sample to complete, the sensor code runs
+// quickly so that the loop() function can take care of other
+// tasks at the same time.
 
 #include <OPT3101.h>
 #include <Wire.h>
+
 #include "sensorDriver.h"
 
+OPT3101 sensor;
 
-const uint8_t dataReadyPin = 2;
-OPT3101 sensor;  // create an object of the sensor class
-int16_t distances[3];  // array where we'll store the values of each sensor pair (Tx-Rx LED)
-volatile bool dataReady = false;  // to determine when the data is ready to be read
-
+uint16_t amplitudes[3];
+int16_t distances[3];
 
 SensorDriver::SensorDriver() {
-    // Wire.begin takes two arguments, first being SDA and second being SCL (Wire.begin(SDA,SCL))
-    Wire.begin(27,26);
+    Serial.println("SensorDriver init");
 
-    Serial.println("starting");
-
-    // Wait for the serial port to be opened before printing
-    // messages (only applies to boards with native USB)
-    while (!Serial) {}
+    Wire.setPins(27, 26);
+    Wire.begin();
 
     sensor.init();
-    if (sensor.getLastError()) {  // if it is not possible to connect to the sensor
-        Serial.print("Failed to initialize OPT3101");
+    if (sensor.getLastError()) {
+        Serial.print("Failed to initialize OPT3101: error ");
         Serial.println(sensor.getLastError());
-        while (true) {}
+        while (1) {}
     }
-    sensor.setContinuousMode();
-    sensor.enableDataReadyOutput(true);
-    sensor.setFrameTiming(32);  // to average the specified number of samples taken before returning a value
-    sensor.setChannel(OPT3101ChannelAutoSwitch);  // to automatically cycle through all channels
-    // sensor.setChannel(0);
-    sensor.setBrightness(OPT3101Brightness::Adaptive);  // Adaptive mode automatically uses low or high brightness depending on how much reflected light
 
-    attachInterrupt(digitalPinToInterrupt(dataReadyPin), setDataReadyFlag, RISING);  // set given pin as an interrupt pin
-    sensor.enableTimingGenerator();
+    sensor.setFrameTiming(256);
+    sensor.setChannel(0);
+    sensor.setBrightness(OPT3101Brightness::Adaptive);
+
+    sensor.startSample();
 }
 
-void setDataReadyFlag() {
-    dataReady = true;
-}
+void SensorDriver::loop() {
+    while (true) {
+        while (!sensor.isSampleDone()) {}
 
+        sensor.readOutputRegs();
 
+        amplitudes[sensor.channelUsed] = sensor.amplitude;
+        distances[sensor.channelUsed] = sensor.distanceMillimeters;
 
-//int16_t *sclass::reading() {
-//  static int16_t arr[3];
-//  dataReady = true;
-//  if (dataReady) // when we have data to read
-//  {
-//    sensor.readOutputRegs();
-//
-//    distances[sensor.channelUsed] = sensor.distanceMillimeters;
-//
-//    if (sensor.channelUsed == 2) // iterate only when we have read the 3 channels
-//    {
-//      for (int16_t i = 0; i < 3; i++)
-//      {
-//        arr[i] = distances[i];
-//      }
-//    }
-//  }
-//  return arr;
-//  dataReady = false;  // put low to restart the sampling
-//  delay(100);
-//}
+        // only print after reading the last channel
+        if (sensor.channelUsed == 2) {
+            Serial.printf("L:%imm C:%imm R:%imm\n", distances[0], distances[1], distances[2]);
+        }
 
-void SensorDriver::startReading() {
-  sensor.sample();
-  Serial.printf("Distance in mm: %d \n", sensor.distanceMillimeters);
+        sensor.nextChannel();
+        sensor.startSample();
+    }
 }

@@ -1,4 +1,6 @@
 #include <Arduino.h>
+
+#include <ledDriver.h>
 #include <main.h>
 #include <motorDriver.h>
 #include <sensorDriver.h>
@@ -6,9 +8,11 @@
 
 // required by arduino lib
 void setup() {
-    pinMode(LED_PIN, OUTPUT);
     Serial.begin(9600);
+    while (!Serial) {}
+    Serial.println("\nMain init");
 
+    // flash the LED
     xTaskCreate(
             task1,  // function
             "Task 1",  // string name
@@ -18,9 +22,20 @@ void setup() {
             NULL  // optional handle
     );
 
+    // start the motors
     xTaskCreate(
             task2,  // function
             "Task 2",  // string name
+            4096,  // stack size in words (not bytes)
+            NULL,  // parameters
+            1,  // priority
+            NULL  // optional handle
+    );
+
+    // read the sensors
+    xTaskCreate(
+            task3,  // function
+            "Task 3",  // string name
             4096,  // stack size in words (not bytes)
             NULL,  // parameters
             1,  // priority
@@ -35,10 +50,11 @@ void loop() {
 
 // flash the LED
 void task1(void * parameter) {
+    LedDriver ledDriver;
     for (int i = 0; i < 5; i++) {
-        digitalWrite(LED_PIN, HIGH);
+        ledDriver.on();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        digitalWrite(LED_PIN, LOW);
+        ledDriver.off();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
@@ -48,7 +64,7 @@ void task1(void * parameter) {
 // start the motors
 void task2(void * parameter) {
     MotorDriver motorDriver;
-    motorDriver.setSpeed(Speed::Fast);
+    motorDriver.setSpeed(Speed::Medium);
 
     motorDriver.setDirection(Direction::Forward);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -62,4 +78,10 @@ void task2(void * parameter) {
     motorDriver.setSpeed(Speed::Stop);
 
     vTaskDelete(NULL);
+}
+
+// read the sensors
+void task3(void * parameter) {
+    SensorDriver sensorDriver;
+    sensorDriver.loop();
 }

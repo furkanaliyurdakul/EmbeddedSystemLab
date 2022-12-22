@@ -24,7 +24,7 @@ enum class Speed {
     Stop = 0,
     Slow = 170,
     Medium = 200,
-    Fast = 225
+    Fast = 230
 };
 
 class MotorDriver {

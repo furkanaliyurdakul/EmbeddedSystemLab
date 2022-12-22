@@ -2,6 +2,8 @@
 
 
 MotorDriver::MotorDriver() {
+    Serial.println("MotorDriver init");
+
     pinMode(MOTOR_A_PIN, OUTPUT);
     pinMode(MOTOR_B_PIN, OUTPUT);
     pinMode(ENABLE_PIN, OUTPUT);
