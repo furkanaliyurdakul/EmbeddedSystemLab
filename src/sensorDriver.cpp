@@ -35,8 +35,8 @@ SensorDriver::SensorDriver() {
     sensor.startSample();
 }
 
-void SensorDriver::loop() {
-    while (true) {
+int SensorDriver::loop() {
+    //while (true) {
         while (!sensor.isSampleDone()) {}
 
         sensor.readOutputRegs();
@@ -51,5 +51,7 @@ void SensorDriver::loop() {
 
         sensor.nextChannel();
         sensor.startSample();
-    }
+
+        return distances[1];
+    //}
 }

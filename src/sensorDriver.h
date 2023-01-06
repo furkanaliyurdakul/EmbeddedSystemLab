@@ -5,7 +5,7 @@
 class SensorDriver {
 public:
     SensorDriver();
-    void loop();
+    int loop();
 };
 
 #endif

@@ -6,6 +6,8 @@
 #include <sensorDriver.h>
 
 
+int ledTimerDelay = 0;
+
 // required by arduino lib
 void setup() {
     Serial.begin(9600);
@@ -51,11 +53,11 @@ void loop() {
 // flash the LED
 void task1(void * parameter) {
     LedDriver ledDriver;
-    for (int i = 0; i < 5; i++) {
+    for (;;) {
         ledDriver.on();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(ledTimerDelay / portTICK_PERIOD_MS);
         ledDriver.off();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(ledTimerDelay / portTICK_PERIOD_MS);
     }
 
     vTaskDelete(NULL);
@@ -64,24 +66,36 @@ void task1(void * parameter) {
 // start the motors
 void task2(void * parameter) {
     MotorDriver motorDriver;
-    motorDriver.setSpeed(Speed::Medium);
+    //motorDriver.setSpeed(Speed::Slow);
+    while (true)
+    {
 
-    motorDriver.setDirection(Direction::Forward);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    motorDriver.setDirection(Direction::Back);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    motorDriver.setDirection(Direction::Left);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-    motorDriver.setDirection(Direction::Right);
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+      motorDriver.setSpeed(Speed::Slow);
+      motorDriver.setDirection(Direction::Forward);
+      vTaskDelay(3000 / portTICK_PERIOD_MS);
+      motorDriver.setSpeed(Speed::Stop);
+      vTaskDelay(300 / portTICK_PERIOD_MS);
 
-    motorDriver.setSpeed(Speed::Stop);
+      motorDriver.setSpeed(Speed::Slow);
+      motorDriver.setDirection(Direction::Back);
+      vTaskDelay(3000 / portTICK_PERIOD_MS);
+      motorDriver.setSpeed(Speed::Stop);
+      vTaskDelay(300 / portTICK_PERIOD_MS);
+//    motorDriver.setDirection(Direction::Left);
+//    vTaskDelay(1000 / portTICK_PERIOD_MS);
+//    motorDriver.setDirection(Direction::Right);
+//    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
+//    motorDriver.setSpeed(Speed::Stop);
+
+    }
     vTaskDelete(NULL);
 }
 
 // read the sensors
 void task3(void * parameter) {
     SensorDriver sensorDriver;
-    sensorDriver.loop();
+    while(true){
+    ledTimerDelay = sensorDriver.loop();
+    }
 }
