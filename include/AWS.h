@@ -13,16 +13,18 @@
 
 #include <MQTTClient.h>
 
-void messageHandler(String, String);
 class myawsclass {
   public:
-    myawsclass();
+    explicit myawsclass(void * parameter);
 
     void connectAWS();                            /* Initialize and connect to AWS */
-    void publishMessage(int16_t sensorValue);     /* Publish the values of the sensors */
+    // void publishMessage(int16_t sensorValue);     /* Publish the values of the sensors */
     void stayConnected();                         /* Maintain the connection */
+  private:
+    QueueHandle_t messageQueue;
+    void messageHandler(String &topic, String &payload);
 };
 
-extern myawsclass awsobject;
+// extern myawsclass awsobject;
 
 #endif

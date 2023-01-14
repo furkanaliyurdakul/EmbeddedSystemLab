@@ -30,19 +30,20 @@
 #include "AWS.h"
 
 /* The MQTT topics that this device should publish/subscribe to */
-#define AWS_IOT_PUBLISH_TOPIC   "esp32/pub" 
-#define AWS_IOT_SUBSCRIBE_TOPIC "esp32/target"
+// #define AWS_IOT_PUBLISH_TOPIC   "esp32/pub"
+#define AWS_IOT_SUBSCRIBE_TOPIC1 "esp32/rover"
+#define AWS_IOT_SUBSCRIBE_TOPIC2 "esp32/target"
 
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
-myawsclass::myawsclass() {
-
+myawsclass::myawsclass(void * parameter) {
+    messageQueue = (QueueHandle_t) parameter;
 }
 
-
-void messageHandler(String &topic, String &payload) {
-  Serial.println("incoming: " + topic + " - " + payload);
+void myawsclass::messageHandler(String &topic, String &payload) {
+  // xQueueSend(messageQueue, payload, portMAX_DELAY);
+  // Serial.println("incoming: " + topic + " - " + payload);
 
 //  StaticJsonDocument<200> doc;
 //  deserializeJson(doc, payload);
@@ -54,7 +55,6 @@ void myawsclass::stayConnected() {
 }
 
 void myawsclass::connectAWS() {
-
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -76,7 +76,11 @@ void myawsclass::connectAWS() {
   client.begin(AWS_IOT_ENDPOINT, 8883, net);
 
   /* Create a message handler */
-  client.onMessage(messageHandler);
+  client.onMessage([this] (String &topic, String &payload) {
+      char buffer[payload.length() + 1];
+      payload.toCharArray(buffer, payload.length() + 1);
+      xQueueSend(messageQueue, buffer, portMAX_DELAY);
+  });
 
   Serial.print("Connecting to AWS IOT");
 
@@ -92,22 +96,23 @@ void myawsclass::connectAWS() {
   }
 
   /* Subscribe to a topic */
-  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
+  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC1);
+  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC2);
 
   Serial.println("AWS IoT Connected!");
 }
 
-void myawsclass::publishMessage(int16_t sensorValue) {
+//void myawsclass::publishMessage(int16_t sensorValue) {
+//
+//  StaticJsonDocument<200> doc;
+//  //doc["time"] = millis();
+//  doc["sensor"] = sensorValue;
+//  char jsonBuffer[512];
+//  serializeJson(doc, jsonBuffer); /* print to client */
+//
+//  client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+//}
 
-  StaticJsonDocument<200> doc;
-  //doc["time"] = millis();
-  doc["sensor"] = sensorValue;
-  char jsonBuffer[512];
-  serializeJson(doc, jsonBuffer); /* print to client */
-
-  client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
-}
-
-myawsclass awsobject = myawsclass();  /* creating an object of class aws */
+// myawsclass awsobject = myawsclass();  /* creating an object of class aws */
 
 
