@@ -4,8 +4,10 @@
 
 class SensorDriver {
 public:
-    SensorDriver();
+    explicit SensorDriver(void * parameter);
     void loop();
+private:
+    QueueHandle_t messageQueue;
 };
 
 #endif

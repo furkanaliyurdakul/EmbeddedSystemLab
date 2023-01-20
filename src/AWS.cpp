@@ -6,62 +6,36 @@
  * Authors: Vipul Deshpande, Jaime Burbano
  */
 
-
-/*
-  Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-  Permission is hereby granted, free of charge, to any person obtaining a copy of this
-  software and associated documentation files (the "Software"), to deal in the Software
-  without restriction, including without limitation the rights to use, copy, modify,
-  merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
-  permit persons to whom the Software is furnished to do so.
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-  PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-  HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
+#include <regex>
 #include "secrets.h"
 #include <WiFiClientSecure.h>
 #include <MQTTClient.h>
-#include <ArduinoJson.h>
 #include "WiFi.h"
 #include "AWS.h"
 
 /* The MQTT topics that this device should publish/subscribe to */
-// #define AWS_IOT_PUBLISH_TOPIC   "esp32/pub"
 #define AWS_IOT_SUBSCRIBE_TOPIC1 "esp32/rover"
 #define AWS_IOT_SUBSCRIBE_TOPIC2 "esp32/target"
 
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
-myawsclass::myawsclass(void * parameter) {
+aws::aws(void * parameter) {
     messageQueue = (QueueHandle_t) parameter;
 }
 
-void myawsclass::messageHandler(String &topic, String &payload) {
-  // xQueueSend(messageQueue, payload, portMAX_DELAY);
-  // Serial.println("incoming: " + topic + " - " + payload);
-
-//  StaticJsonDocument<200> doc;
-//  deserializeJson(doc, payload);
-//  const char* message = doc["message"];
-}
-
-void myawsclass::stayConnected() {
+void aws::stayConnected() {
   client.loop();
 }
 
-void myawsclass::connectAWS() {
+void aws::connectAWS() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   Serial.println("Connecting to Wi-Fi");
 
   while (WiFi.status() != WL_CONNECTED){
-    delay(500);
+    delay(1024);
     Serial.print("Connecting...!");
   }
 
@@ -77,9 +51,7 @@ void myawsclass::connectAWS() {
 
   /* Create a message handler */
   client.onMessage([this] (String &topic, String &payload) {
-      char buffer[payload.length() + 1];
-      payload.toCharArray(buffer, payload.length() + 1);
-      xQueueSend(messageQueue, buffer, portMAX_DELAY);
+      xQueueSend(messageQueue, payload.c_str(), 0);
   });
 
   Serial.print("Connecting to AWS IOT");
@@ -101,18 +73,3 @@ void myawsclass::connectAWS() {
 
   Serial.println("AWS IoT Connected!");
 }
-
-//void myawsclass::publishMessage(int16_t sensorValue) {
-//
-//  StaticJsonDocument<200> doc;
-//  //doc["time"] = millis();
-//  doc["sensor"] = sensorValue;
-//  char jsonBuffer[512];
-//  serializeJson(doc, jsonBuffer); /* print to client */
-//
-//  client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
-//}
-
-// myawsclass awsobject = myawsclass();  /* creating an object of class aws */
-
-

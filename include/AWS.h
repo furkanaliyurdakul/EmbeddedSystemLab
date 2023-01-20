@@ -11,20 +11,13 @@
 #ifndef aws_h
 #define aws_h
 
-#include <MQTTClient.h>
-
-class myawsclass {
+class aws {
   public:
-    explicit myawsclass(void * parameter);
-
-    void connectAWS();                            /* Initialize and connect to AWS */
-    // void publishMessage(int16_t sensorValue);     /* Publish the values of the sensors */
-    void stayConnected();                         /* Maintain the connection */
+    explicit aws(void * parameter);
+    void connectAWS();  // Initialize and connect to AWS
+    void stayConnected();  // Maintain the connection
   private:
     QueueHandle_t messageQueue;
-    void messageHandler(String &topic, String &payload);
 };
-
-// extern myawsclass awsobject;
 
 #endif

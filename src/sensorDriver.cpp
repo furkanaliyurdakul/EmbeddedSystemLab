@@ -15,7 +15,9 @@ OPT3101 sensor;
 uint16_t amplitudes[3];
 int16_t distances[3];
 
-SensorDriver::SensorDriver() {
+SensorDriver::SensorDriver(void * parameter) {
+    messageQueue = (QueueHandle_t) parameter;
+
     Serial.println("SensorDriver init");
 
     Wire.setPins(27, 26);
@@ -44,9 +46,12 @@ void SensorDriver::loop() {
         amplitudes[sensor.channelUsed] = sensor.amplitude;
         distances[sensor.channelUsed] = sensor.distanceMillimeters;
 
-        // only print after reading the last channel
+        // process after reading the last channel
         if (sensor.channelUsed == 2) {
-            Serial.printf("L:%imm C:%imm R:%imm\n", distances[0], distances[1], distances[2]);
+            char buffer[50];
+            sprintf(buffer, "left:%d middle:%d right:%d", distances[0], distances[1], distances[2]);
+            xQueueSend(messageQueue, buffer, 0);
+            // Serial.printf("L:%imm C:%imm R:%imm\n", distances[0], distances[1], distances[2]);
         }
 
         sensor.nextChannel();
