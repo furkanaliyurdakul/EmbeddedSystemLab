@@ -15,10 +15,13 @@ using namespace std;
 
 int TARGET_AREA = 5;  // coordinate units
 int SENSOR_TRIGGER_DISTANCE = 100;  // mm
-int TURN_MULTIPLIER = 25;  // USB:25 Battery:?
+int TURN_MULTIPLIER = 25;  // ms = angle * multiplier
+int AWS_MESSAGE_TIMEOUT = 1500;  // ms
 
 int target_x = 0, target_y = 0;
 int rover_x = 0, rover_y = 0, rover_angle = 0;
+
+uint32_t last_message_millis;
 
 QueueHandle_t messageQueue;  // thread safe queue
 QueueHandle_t motorQueue;
@@ -86,6 +89,7 @@ void loop() {
             case 4:  // Rover message - "{5: [(273, 132), 294]}"
                 if (target_x == 0 || target_y == 0) break;  // ignore message if no target
                 if (tokens[0] == 5) {
+                    if (millis() < last_message_millis + AWS_MESSAGE_TIMEOUT) break;  // ignore messages util timeout
                     rover_x = tokens[1];
                     rover_y = tokens[2];
                     rover_angle = tokens[3];
@@ -93,18 +97,14 @@ void loop() {
                     if (getDistance((double) target_x, (double) target_y, (double) rover_x, (double) rover_y) > TARGET_AREA) {
                         // rotate towards target
                         double angle = getAngle((double) rover_x, (double) rover_y, (double) target_x, (double) target_y);
-                        // Serial.println(angle);
-                        // Serial.println(rover_angle);
                         angle -= rover_angle;
-                        // Serial.printf("turn angle: %f\n", angle);
-                        // 0to180 right turn, -0to-180 left turn
-                        // xQueueSend(motorQueue, to_string(angle <= 180 ? angle : (360 - angle) * -1).c_str(), 0);
                         xQueueSend(motorQueue, to_string(angle).c_str(), 0);
                     }
                     else {
                         xQueueSend(motorQueue, "STOP", 0);
-                        Serial.println("- Target Reached -");
+                        Serial.println("** Target Reached **");
                     }
+                    last_message_millis = millis();
                 }
                 else {
                     Serial.println("Invalid rover QR");
@@ -112,11 +112,11 @@ void loop() {
                 }
                 break;
             case 3:  // Sensor message - "left:100 middle:110 right:90"
-                if (tokens[0] < SENSOR_TRIGGER_DISTANCE || tokens[1] < SENSOR_TRIGGER_DISTANCE || tokens[2] < SENSOR_TRIGGER_DISTANCE) {
-                    xQueueSend(motorQueue, target_x < rover_x ? "-45" : "45", 0);
-                    vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    xQueueReset(messageQueue);
-                }
+//                if (tokens[0] < SENSOR_TRIGGER_DISTANCE || tokens[1] < SENSOR_TRIGGER_DISTANCE || tokens[2] < SENSOR_TRIGGER_DISTANCE) {
+//                    xQueueSend(motorQueue, target_x < rover_x ? "-45" : "45", 0);
+//                    vTaskDelay(2000 / portTICK_PERIOD_MS);
+//                    xQueueReset(messageQueue);
+//                }
                 break;
             case 2:  // Target message - "(273, 132)"
 //                Serial.printf("target x:%i y:%i\n", tokens[0], tokens[1]);
@@ -174,7 +174,7 @@ void task2(void * parameter) {
 
     while(true) {
         char message[1000];
-        if (xQueueReceive(motorQueue, (void *)message, portMAX_DELAY)) {
+        if (xQueueReceive(motorQueue, (void *)message, 0)) {
             if (strcmp(message, "STOP") == 0) {
                 motorDriver.setSpeed(Speed::Stop);
             }
@@ -189,7 +189,8 @@ void task2(void * parameter) {
                 motorDriver.setSpeed(Speed::Stop);
                 vTaskDelay(300 / portTICK_PERIOD_MS);
                 motorDriver.setDirection(Direction::Forward);
-                motorDriver.setSpeed(Speed::Medium);
+                motorDriver.setSpeed(Speed::Slow);
+                xQueueReset(motorQueue);
             }
         }
     }
@@ -207,6 +208,6 @@ void task4(void * parameter) {
     aws.connectAWS();
     while(true) {
         aws.stayConnected();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);  // 0 crashes, 1000 times out
     }
 }

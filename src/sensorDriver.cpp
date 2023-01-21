@@ -49,7 +49,13 @@ void SensorDriver::loop() {
         // process after reading the last channel
         if (sensor.channelUsed == 2) {
             char buffer[50];
-            sprintf(buffer, "left:%d middle:%d right:%d", distances[0], distances[1], distances[2]);
+            sprintf(
+                buffer,
+                "left:%d middle:%d right:%d",
+                distances[0] > 0 ? distances[0] : 1000,  // ignore invalid negative readings
+                distances[1] > 0 ? distances[1] : 1000,
+                distances[2] > 0 ? distances[2] + 50 : 1000  // sensor unreliable, only accept readings between 50 and 100
+            );
             xQueueSend(messageQueue, buffer, 0);
             // Serial.printf("L:%imm C:%imm R:%imm\n", distances[0], distances[1], distances[2]);
         }

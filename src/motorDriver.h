@@ -22,8 +22,8 @@ enum class Direction {
 
 enum class Speed {
     Stop = 0,
-    Slow = 170,
-    Medium = 200,
+    Slow = 155,
+    Medium = 183,  // usb:200 battery:183
     Fast = 230
 };
 
