@@ -13,10 +13,6 @@
 #include "WiFi.h"
 #include "AWS.h"
 
-/* The MQTT topics that this device should publish/subscribe to */
-#define AWS_IOT_SUBSCRIBE_TOPIC1 "esp32/rover"
-#define AWS_IOT_SUBSCRIBE_TOPIC2 "esp32/target"
-
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
@@ -54,15 +50,14 @@ void aws::connectAWS() {
       xQueueSend(messageQueue, payload.c_str(), 0);
   });
 
-  Serial.print("Connecting to AWS IOT");
+  Serial.println("Connecting to AWS IOT");
 
   while (!client.connect(THINGNAME)) {
     Serial.print(".");
     delay(100);
   }
 
-  if(!client.connected())
-  {
+  if(!client.connected()) {
     Serial.println("AWS IoT Timeout!");
     return;
   }
@@ -72,4 +67,8 @@ void aws::connectAWS() {
   client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC2);
 
   Serial.println("AWS IoT Connected!");
+}
+
+void aws::publish(char message[]) {
+    client.publish(AWS_IOT_PUBLISH_TOPIC, message);
 }
