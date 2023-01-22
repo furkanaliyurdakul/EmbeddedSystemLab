@@ -21,7 +21,7 @@ class aws {
     explicit aws(void * parameter);
     void connectAWS();  // Initialize and connect to AWS
     void stayConnected();  // Maintain the connection
-    void publish(char message[]);
+    void publish(const char *message);
   private:
     QueueHandle_t messageQueue;
 };

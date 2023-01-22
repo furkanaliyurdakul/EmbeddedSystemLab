@@ -16,7 +16,7 @@ using namespace std;
 int TARGET_AREA = 5;  // coordinate units
 int SENSOR_TRIGGER_DISTANCE = 100;  // mm
 int TURN_MULTIPLIER = 25;  // ms = angle * multiplier
-int AWS_MESSAGE_TIMEOUT = 1500;  // ms
+int AWS_MESSAGE_TIMEOUT = 8000;  // ms
 
 int target_x = 0, target_y = 0;
 int rover_x = 0, rover_y = 0, rover_angle = 0;
@@ -25,6 +25,8 @@ uint32_t last_message_millis;
 
 QueueHandle_t messageQueue;  // thread safe queue
 QueueHandle_t motorQueue;
+
+aws *globalAWS;
 
 // required by arduino lib
 void setup() {
@@ -58,14 +60,14 @@ void setup() {
     );
 
     // read the sensors
-    xTaskCreate(
-            task3,  // function
-            "Task 3",  // string name
-            4096,  // stack size in words (not bytes)
-            (void*) messageQueue,  // parameters
-            1,  // priority
-            NULL  // optional handle
-    );
+//    xTaskCreate(
+//            task3,  // function
+//            "Task 3",  // string name
+//            4096,  // stack size in words (not bytes)
+//            (void*) messageQueue,  // parameters
+//            1,  // priority
+//            NULL  // optional handle
+//    );
 
     // communicate with AWS
     xTaskCreate(
@@ -99,10 +101,12 @@ void loop() {
                         double angle = getAngle((double) rover_x, (double) rover_y, (double) target_x, (double) target_y);
                         angle -= rover_angle;
                         xQueueSend(motorQueue, to_string(angle).c_str(), 0);
+                        globalAWS->publish(("rotating to angle " + to_string(angle)).c_str());
                     }
                     else {
                         xQueueSend(motorQueue, "STOP", 0);
                         Serial.println("** Target Reached **");
+                        globalAWS->publish("** Target Reached **");
                     }
                     last_message_millis = millis();
                 }
@@ -112,11 +116,11 @@ void loop() {
                 }
                 break;
             case 3:  // Sensor message - "left:100 middle:110 right:90"
-//                if (tokens[0] < SENSOR_TRIGGER_DISTANCE || tokens[1] < SENSOR_TRIGGER_DISTANCE || tokens[2] < SENSOR_TRIGGER_DISTANCE) {
-//                    xQueueSend(motorQueue, target_x < rover_x ? "-45" : "45", 0);
-//                    vTaskDelay(2000 / portTICK_PERIOD_MS);
-//                    xQueueReset(messageQueue);
-//                }
+                if (tokens[0] < SENSOR_TRIGGER_DISTANCE || tokens[1] < SENSOR_TRIGGER_DISTANCE || tokens[2] < SENSOR_TRIGGER_DISTANCE) {
+                    xQueueSend(motorQueue, target_x < rover_x ? "-45" : "45", 0);
+                    vTaskDelay(2000 / portTICK_PERIOD_MS);
+                    xQueueReset(messageQueue);
+                }
                 break;
             case 2:  // Target message - "(273, 132)"
 //                Serial.printf("target x:%i y:%i\n", tokens[0], tokens[1]);
@@ -204,10 +208,11 @@ void task3(void * parameter) {
 
 // listen for AWS messages
 void task4(void * parameter) {
-    aws aws(parameter);
-    aws.connectAWS();
+    globalAWS = new aws(parameter);
+    globalAWS->connectAWS();
+    globalAWS->publish("AWS Connected");
     while(true) {
-        aws.stayConnected();
+        globalAWS->stayConnected();
         vTaskDelay(100 / portTICK_PERIOD_MS);  // 0 crashes, 1000 times out
     }
 }

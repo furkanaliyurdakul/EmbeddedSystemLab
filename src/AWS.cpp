@@ -69,6 +69,8 @@ void aws::connectAWS() {
   Serial.println("AWS IoT Connected!");
 }
 
-void aws::publish(char message[]) {
-    client.publish(AWS_IOT_PUBLISH_TOPIC, message);
+void aws::publish(const char *message) {
+    char buffer[1000];
+    sprintf(buffer, R"({"message": "%s"})", message);
+    client.publish(AWS_IOT_PUBLISH_TOPIC, buffer);
 }
