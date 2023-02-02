@@ -7,6 +7,7 @@
  */
 
 #include <regex>
+#include <stdexcept>
 #include "secrets.h"
 #include <WiFiClientSecure.h>
 #include <MQTTClient.h>
@@ -21,7 +22,9 @@ aws::aws(void * parameter) {
 }
 
 void aws::stayConnected() {
-  client.loop();
+  if (!client.loop()) {
+    throw std::runtime_error("AWS Disconnected");
+  }
 }
 
 void aws::connectAWS() {
