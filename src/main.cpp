@@ -13,13 +13,18 @@
 
 using namespace std;
 
-int TARGET_AREA = 5;  // coordinate units
-int SENSOR_TRIGGER_DISTANCE = 100;  // mm
+int TARGET_AREA = 15;  // coordinate units
+int SENSOR_TRIGGER_MIN = 100;  // mm
+int SENSOR_TRIGGER_MAX = 150;  // mm
 int TURN_MULTIPLIER = 25;  // ms = angle * multiplier
-int AWS_MESSAGE_TIMEOUT = 8000;  // ms
+int AWS_MESSAGE_TIMEOUT = 6500;  // ms
 
 int target_x = 0, target_y = 0;
+int prev_target_x = 0, prev_target_y = 0;
 int rover_x = 0, rover_y = 0, rover_angle = 0;
+
+bool ignoreDirections = false;
+
 
 uint32_t last_message_millis;
 
@@ -60,14 +65,14 @@ void setup() {
     );
 
     // read the sensors
-//    xTaskCreate(
-//            task3,  // function
-//            "Task 3",  // string name
-//            4096,  // stack size in words (not bytes)
-//            (void*) messageQueue,  // parameters
-//            1,  // priority
-//            NULL  // optional handle
-//    );
+    xTaskCreate(
+            task3,  // function
+            "Task 3",  // string name
+            4096,  // stack size in words (not bytes)
+            (void*) messageQueue,  // parameters
+            1,  // priority
+            NULL  // optional handle
+    );
 
     // communicate with AWS
     xTaskCreate(
@@ -86,6 +91,7 @@ void loop() {
     if (xQueueReceive(messageQueue, (void *)message, 0)) {
         // tokanize digits from message
         vector<int> tokens = tokenizeMessage(message);
+        int left, middle;
 
         switch(tokens.size()) {
             case 4:  // Rover message - "{5: [(273, 132), 294]}"
@@ -97,9 +103,23 @@ void loop() {
                     rover_angle = tokens[3];
                     // if not at target
                     if (getDistance((double) target_x, (double) target_y, (double) rover_x, (double) rover_y) > TARGET_AREA) {
+                        if (ignoreDirections) break;
                         // rotate towards target
                         double angle = getAngle((double) rover_x, (double) rover_y, (double) target_x, (double) target_y);
+//                        globalAWS->publish(("angle " + to_string(angle)).c_str());
+//
+//                        globalAWS->publish(("rover angle " + to_string(rover_angle)).c_str());
+                        rover_angle = 360 - rover_angle;  // map received angle from camera
+
                         angle -= rover_angle;
+                        if (angle < -180) {
+                            angle += 360;
+                        } else if (angle > 180) {
+                            angle -= 360;
+                        }
+
+//                        angle = angle > 180 ? angle - 360: angle;  // goes the wrong way
+//                        angle -= (360 - rover_angle);  // does circles
                         xQueueSend(motorQueue, to_string(angle).c_str(), 0);
                         globalAWS->publish(("rotating to angle " + to_string(angle)).c_str());
                     }
@@ -116,16 +136,44 @@ void loop() {
                 }
                 break;
             case 3:  // Sensor message - "left:100 middle:110 right:90"
-                if (tokens[0] < SENSOR_TRIGGER_DISTANCE || tokens[1] < SENSOR_TRIGGER_DISTANCE || tokens[2] < SENSOR_TRIGGER_DISTANCE) {
-                    xQueueSend(motorQueue, target_x < rover_x ? "-45" : "45", 0);
-                    vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    xQueueReset(messageQueue);
+                left = tokens[0];
+                middle = tokens[1];
+                if (!ignoreDirections) {
+                    // not triggered
+                    if (left < SENSOR_TRIGGER_MAX) {
+                        globalAWS->publish("-- Sensor Triggered --");
+                        ignoreDirections = true;
+                        xQueueSend(motorQueue, "15", 0);
+//                        vTaskDelay(30 * TURN_MULTIPLIER / portTICK_PERIOD_MS);
+                    }
+                }
+                else {
+                    // triggered state
+                    if (left < SENSOR_TRIGGER_MIN || middle < SENSOR_TRIGGER_MIN - 15) {
+                        xQueueSend(motorQueue, "25", 0);
+                    }
+                    else if (left > SENSOR_TRIGGER_MAX) {
+                        if (left > 300) {
+                            globalAWS->publish("-- Sensor Trigger Cleared --");
+                            ignoreDirections = false;
+                        }
+                        xQueueSend(motorQueue, "-15", 0);
+                    }
                 }
                 break;
             case 2:  // Target message - "(273, 132)"
 //                Serial.printf("target x:%i y:%i\n", tokens[0], tokens[1]);
                 target_x = tokens[0];
                 target_y = tokens[1];
+
+                // target changed? stop the bot and wait for new co-ords
+                if (target_x != prev_target_x || target_y != prev_target_y) {
+                    xQueueSend(motorQueue, "STOP", 0);
+                    vTaskDelay(3000 / portTICK_PERIOD_MS);
+                }
+
+                prev_target_x = target_x;
+                prev_target_y = target_y;
                 break;
             default:
                 Serial.println("Invalid message");
@@ -154,8 +202,7 @@ double getDistance(double x1, double y1, double x2, double y2) {
 }
 
 double getAngle(double x1, double y1, double x2, double y2) {
-    double angle = atan2(x2 - x1, y1 - y2);
-    return angle * 180 / M_PI;
+    return (atan2(y2 - y1, x2 - x1) * 180 / M_PI) + 90;
 }
 
 // flash the LED
