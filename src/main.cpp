@@ -119,11 +119,9 @@ void loop() {
                             // rotate towards target
                             double angle = getAngle((double) rover_x, (double) rover_y, (double) target_x,
                                                     (double) target_y);
-//                        globalAWS->publish(("angle " + to_string(angle)).c_str());
-//
-//                        globalAWS->publish(("rover angle " + to_string(rover_angle)).c_str());
                             rover_angle = 360 - rover_angle;  // map received angle from camera
 
+                            // translate angle to target + rover angle, to required bot change angle
                             angle -= rover_angle;
                             if (angle < -180) {
                                 angle += 360;
@@ -131,8 +129,6 @@ void loop() {
                                 angle -= 360;
                             }
 
-//                        angle = angle > 180 ? angle - 360: angle;  // goes the wrong way
-//                        angle -= (360 - rover_angle);  // does circles
                             xQueueSend(motorQueue, to_string(angle).c_str(), 0);
                             globalAWS->publish(("rotating to angle " + to_string(angle)).c_str());
                         } else {
@@ -155,7 +151,6 @@ void loop() {
                             globalAWS->publish("-- Sensor Triggered --");
                             ignoreDirections = true;
                             xQueueSend(motorQueue, "15", 0);
-//                        vTaskDelay(30 * TURN_MULTIPLIER / portTICK_PERIOD_MS);
                         }
                     } else {
                         // triggered state
@@ -172,7 +167,6 @@ void loop() {
                     }
                     break;
                 case 2:  // Target message - "(273, 132)"
-//                Serial.printf("target x:%i y:%i\n", tokens[0], tokens[1]);
                     target_x = tokens[0];
                     target_y = tokens[1];
 
@@ -247,14 +241,14 @@ void task2(void * parameter) {
                 } else {
                     int angle = stoi(message);
                     Serial.printf("turn angle: %i\n", angle);
-                    motorDriver.setSpeed(Speed::Stop);
+                    motorDriver.setSpeed(Speed::Stop);  // stop motors for 0.3s to reduce motor stress
                     vTaskDelay(300 / portTICK_PERIOD_MS);
                     motorDriver.setDirection(angle >= 0 ? Direction::Right : Direction::Left);
-                    motorDriver.setSpeed(Speed::Medium);
+                    motorDriver.setSpeed(Speed::Medium);  // rotate by degrees, -x (left) or +x (right)
                     vTaskDelay(((angle >= 0 ? angle : -angle) * TURN_MULTIPLIER) / portTICK_PERIOD_MS);
-                    motorDriver.setSpeed(Speed::Stop);
+                    motorDriver.setSpeed(Speed::Stop);  // stop motors for 0.3s to reduce motor stress
                     vTaskDelay(300 / portTICK_PERIOD_MS);
-                    motorDriver.setDirection(Direction::Forward);
+                    motorDriver.setDirection(Direction::Forward);  // proceed straight on completion of turn
                     motorDriver.setSpeed(Speed::Slow);
                     xQueueReset(motorQueue);
                 }
